@@ -1,4 +1,4 @@
-import { useState, useMemo, useEffect } from 'react';
+import { useState, useMemo, useRef } from 'react';
 import {
   Search,
   Layers,
@@ -10,10 +10,9 @@ import {
   Crown,
   Globe2,
   Utensils,
-  ChevronRight,
   ExternalLink,
   Map as MapIcon,
-  Info,
+  Compass,
 } from 'lucide-react';
 import JapanMap from './components/JapanMap';
 import PrefectureDetail from './components/PrefectureDetail';
@@ -25,7 +24,6 @@ import {
   ALL_PREFECTURES,
   PREFECTURE_MAP,
   REGION_MAP,
-  COMPARE_PRESETS,
 } from './data/prefecturesData';
 import { REGIONS, HISTORICAL_ERAS } from './data/regionsAndEras';
 import { RegionId, Lens, HistoricalEra } from './types/atlas';
@@ -44,13 +42,20 @@ export default function App() {
   const [isCompareOpen, setIsCompareOpen] = useState(false);
   const [isStatsOpen, setIsStatsOpen] = useState(false);
 
-  // 모바일 탭 상태 ('map' | 'detail')
-  const [mobileTab, setMobileTab] = useState<'map' | 'detail'>('map');
+  const mapSectionRef = useRef<HTMLDivElement>(null);
+  const detailSectionRef = useRef<HTMLDivElement>(null);
+
+  const scrollToDetail = () => {
+    detailSectionRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  };
+
+  const scrollToMap = () => {
+    mapSectionRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  };
 
   // 도도부현 선택 핸들러
   const handleSelectPrefecture = (id: string) => {
     setSelectedPrefId(id);
-    setMobileTab('detail');
   };
 
   // 검색 결과
@@ -90,39 +95,41 @@ export default function App() {
   const handleLensChange = (nextLens: Lens) => {
     setLens(nextLens);
     if (nextLens === 'era' && !selectedEra) {
-      setSelectedEra(HISTORICAL_ERAS[4]); // 기본 에도 시대
+      setSelectedEra(HISTORICAL_ERAS[4]);
     }
   };
 
   return (
-    <div className="min-h-screen bg-slate-100/70 text-slate-900 flex flex-col font-sans">
+    <div className="min-h-screen bg-slate-100/80 text-slate-900 flex flex-col font-sans">
+      {/* =================================================================== */}
       {/* 1. 글로벌 헤더 네비게이션 */}
-      <header className="sticky top-0 z-40 bg-white/95 backdrop-blur-md border-b border-slate-200 px-4 sm:px-6 py-2.5 shadow-2xs">
-        <div className="max-w-7xl mx-auto flex items-center justify-between gap-3">
+      {/* =================================================================== */}
+      <header className="sticky top-0 z-40 bg-white/95 backdrop-blur-md border-b border-slate-200 px-4 sm:px-6 py-3 shadow-2xs">
+        <div className="max-w-[1440px] mx-auto flex items-center justify-between gap-4">
           {/* 로고 & 타이틀 */}
-          <div className="flex items-center gap-2.5 shrink-0">
-            <div className="w-9 h-9 rounded-xl bg-gradient-to-tr from-rose-600 to-amber-500 text-white flex items-center justify-center font-black text-lg shadow-sm">
+          <div className="flex items-center gap-3 shrink-0">
+            <div className="w-10 h-10 rounded-xl bg-gradient-to-tr from-rose-600 to-amber-500 text-white flex items-center justify-center font-black text-xl shadow-sm">
               🗾
             </div>
             <div>
-              <div className="flex items-center gap-1.5">
-                <h1 className="font-black text-base sm:text-lg tracking-tight text-slate-900">
+              <div className="flex items-center gap-2">
+                <h1 className="font-black text-lg sm:text-xl tracking-tight text-slate-900">
                   일본 인터랙티브 아틀라스
                 </h1>
-                <span className="text-[10px] font-extrabold px-1.5 py-0.2 rounded bg-rose-100 text-rose-800 hidden sm:inline-block">
+                <span className="text-xs font-extrabold px-2 py-0.5 rounded-md bg-rose-100 text-rose-800 hidden sm:inline-block">
                   47 도도부현
                 </span>
               </div>
-              <p className="text-[11px] text-slate-500 font-medium hidden sm:block">
+              <p className="text-xs text-slate-500 font-medium hidden sm:block">
                 8대 지방 · 율령국(令制国)과 천년 황도 · 조선통신사 사행로 · 3대 메트로폴리스
               </p>
             </div>
           </div>
 
           {/* 통합 검색바 */}
-          <div className="relative flex-1 max-w-md hidden md:block">
+          <div className="relative flex-1 max-w-lg hidden md:block">
             <div className="relative">
-              <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+              <Search size={16} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" />
               <input
                 type="text"
                 value={searchQuery}
@@ -130,13 +137,13 @@ export default function App() {
                 onFocus={() => setSearchFocused(true)}
                 onBlur={() => setTimeout(() => setSearchFocused(false), 200)}
                 placeholder="도도부현, 도시, 율령국(사쓰마·조슈 등), 인물, 특산품 검색..."
-                className="w-full pl-9 pr-3 py-1.5 text-xs rounded-xl border border-slate-200 bg-slate-50 focus:bg-white focus:outline-none focus:ring-2 focus:ring-slate-900/20 transition"
+                className="w-full pl-10 pr-4 py-2 text-sm rounded-xl border border-slate-200 bg-slate-50 focus:bg-white focus:outline-none focus:ring-2 focus:ring-slate-900/20 transition"
               />
             </div>
 
             {/* 검색 드롭다운 결과 */}
             {searchFocused && searchResults.length > 0 && (
-              <div className="absolute left-0 right-0 top-full mt-1.5 bg-white border border-slate-200 rounded-2xl shadow-xl overflow-hidden z-50 divide-y divide-slate-100 max-h-80 overflow-y-auto">
+              <div className="absolute left-0 right-0 top-full mt-1.5 bg-white border border-slate-200 rounded-2xl shadow-xl overflow-hidden z-50 divide-y divide-slate-100 max-h-96 overflow-y-auto">
                 {searchResults.map((p) => {
                   const reg = REGION_MAP[p.regionId];
                   return (
@@ -146,18 +153,18 @@ export default function App() {
                         handleSelectPrefecture(p.id);
                         setSearchQuery('');
                       }}
-                      className="w-full text-left px-3.5 py-2.5 hover:bg-slate-50 transition flex items-center justify-between text-xs"
+                      className="w-full text-left px-4 py-3 hover:bg-slate-50 transition flex items-center justify-between text-sm"
                     >
                       <div>
                         <div className="font-extrabold text-slate-900 flex items-center gap-1.5">
-                          {p.nameKo} <span className="text-slate-400 font-normal">{p.nameHanja}</span>
-                          {p.powerBadge && <span className="text-[10px]">👑</span>}
+                          {p.nameKo} <span className="text-slate-400 font-normal text-xs">{p.nameHanja}</span>
+                          {p.powerBadge && <span className="text-xs">👑</span>}
                         </div>
-                        <div className="text-[11px] text-slate-500 mt-0.5 line-clamp-1">
+                        <div className="text-xs text-slate-500 mt-0.5 line-clamp-1">
                           {p.capitalKo} · 율령국: {p.oldProvinces} · {p.nickname}
                         </div>
                       </div>
-                      <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded ${reg.badgeBg} ${reg.badgeText}`}>
+                      <span className={`text-xs font-bold px-2 py-0.5 rounded ${reg.badgeBg} ${reg.badgeText}`}>
                         {reg.nameKo}
                       </span>
                     </button>
@@ -167,24 +174,24 @@ export default function App() {
             )}
           </div>
 
-          {/* 3대 모달 액션 버튼 & 링크 */}
-          <div className="flex items-center gap-1.5 shrink-0">
+          {/* 3대 모달 액션 버튼 */}
+          <div className="flex items-center gap-2 shrink-0">
             <button
               onClick={() => setIsHierarchyOpen(true)}
-              className="text-xs font-bold px-2.5 py-1.5 rounded-xl border border-slate-200 bg-white hover:bg-slate-900 hover:text-white transition flex items-center gap-1.5 shadow-2xs"
+              className="text-xs sm:text-sm font-bold px-3 py-2 rounded-xl border border-slate-200 bg-white hover:bg-slate-900 hover:text-white transition flex items-center gap-1.5 shadow-2xs"
             >
-              <Layers size={14} className="text-indigo-600" />
+              <Layers size={15} className="text-indigo-600" />
               <span className="hidden sm:inline">행정 계층 & 율령국</span>
             </button>
 
             <button
               onClick={() => setIsCompareOpen(true)}
-              className="relative text-xs font-bold px-2.5 py-1.5 rounded-xl border border-slate-200 bg-white hover:bg-slate-900 hover:text-white transition flex items-center gap-1.5 shadow-2xs"
+              className="relative text-xs sm:text-sm font-bold px-3 py-2 rounded-xl border border-slate-200 bg-white hover:bg-slate-900 hover:text-white transition flex items-center gap-1.5 shadow-2xs"
             >
-              <Scale size={14} className="text-amber-600" />
+              <Scale size={15} className="text-amber-600" />
               <span className="hidden sm:inline">비교함</span>
               {compareIds.length > 0 && (
-                <span className="w-4 h-4 rounded-full bg-slate-900 text-white text-[9px] font-black flex items-center justify-center">
+                <span className="w-5 h-5 rounded-full bg-slate-900 text-white text-xs font-black flex items-center justify-center">
                   {compareIds.length}
                 </span>
               )}
@@ -192,29 +199,31 @@ export default function App() {
 
             <button
               onClick={() => setIsStatsOpen(true)}
-              className="text-xs font-bold px-2.5 py-1.5 rounded-xl border border-slate-200 bg-white hover:bg-slate-900 hover:text-white transition flex items-center gap-1.5 shadow-2xs"
+              className="text-xs sm:text-sm font-bold px-3 py-2 rounded-xl border border-slate-200 bg-white hover:bg-slate-900 hover:text-white transition flex items-center gap-1.5 shadow-2xs"
             >
-              <BarChart3 size={14} className="text-emerald-600" />
+              <BarChart3 size={15} className="text-emerald-600" />
               <span className="hidden sm:inline">통계 랭킹</span>
             </button>
           </div>
         </div>
       </header>
 
+      {/* =================================================================== */}
       {/* 2. 서브 컨트롤 바: 8개 지방 필터 칩 & 5대 렌즈 스위처 */}
-      <div className="bg-white border-b border-slate-200 px-4 sm:px-6 py-2.5 shadow-2xs">
-        <div className="max-w-7xl mx-auto space-y-2.5">
+      {/* =================================================================== */}
+      <div className="bg-white border-b border-slate-200 px-4 sm:px-6 py-3 shadow-2xs">
+        <div className="max-w-[1440px] mx-auto space-y-2.5">
           {/* Row 1: 8대 지방 필터 칩 */}
-          <div className="flex items-center gap-1.5 overflow-x-auto scroll-thin pb-0.5">
-            <span className="text-[11px] font-bold text-slate-400 shrink-0 mr-1 flex items-center gap-1">
-              <MapPin size={12} /> 지방:
+          <div className="flex items-center gap-2 overflow-x-auto scroll-thin pb-0.5">
+            <span className="text-xs font-bold text-slate-500 shrink-0 mr-1 flex items-center gap-1">
+              <MapPin size={14} /> 지방 필터:
             </span>
             <button
               onClick={() => setRegionFilter('all')}
-              className={`text-xs font-bold px-2.5 py-1 rounded-lg transition shrink-0 ${
+              className={`text-xs sm:text-sm font-bold px-3 py-1.5 rounded-xl transition shrink-0 ${
                 regionFilter === 'all'
                   ? 'bg-slate-900 text-white shadow-2xs'
-                  : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+                  : 'bg-slate-100 text-slate-700 hover:bg-slate-200'
               }`}
             >
               전체 (47)
@@ -226,23 +235,23 @@ export default function App() {
                 <button
                   key={r.id}
                   onClick={() => setRegionFilter(r.id)}
-                  className={`text-xs font-bold px-2.5 py-1 rounded-lg transition shrink-0 flex items-center gap-1 ${
+                  className={`text-xs sm:text-sm font-bold px-3 py-1.5 rounded-xl transition shrink-0 flex items-center gap-1 ${
                     isSelected
                       ? `${r.badgeBg} ${r.badgeText} ring-2 ring-slate-900/20 shadow-2xs`
-                      : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+                      : 'bg-slate-100 text-slate-700 hover:bg-slate-200'
                   }`}
                 >
                   <span>{r.nameKo}</span>
-                  <span className="text-[10px] opacity-60">({count})</span>
+                  <span className="text-xs opacity-65">({count})</span>
                 </button>
               );
             })}
           </div>
 
           {/* Row 2: 5대 인터랙티브 렌즈 스위처 */}
-          <div className="flex items-center gap-1.5 overflow-x-auto scroll-thin pt-0.5">
-            <span className="text-[11px] font-bold text-slate-400 shrink-0 mr-1 flex items-center gap-1">
-              <Sparkles size={12} /> 테마 렌즈:
+          <div className="flex items-center gap-2 overflow-x-auto scroll-thin pt-0.5">
+            <span className="text-xs font-bold text-slate-500 shrink-0 mr-1 flex items-center gap-1">
+              <Sparkles size={14} /> 테마 렌즈:
             </span>
 
             {[
@@ -257,13 +266,13 @@ export default function App() {
                 <button
                   key={id}
                   onClick={() => handleLensChange(id as Lens)}
-                  className={`text-xs font-bold px-3 py-1 rounded-xl border transition shrink-0 flex items-center gap-1.5 ${
+                  className={`text-xs sm:text-sm font-bold px-3.5 py-1.5 rounded-xl border transition shrink-0 flex items-center gap-1.5 ${
                     active
                       ? 'bg-slate-900 text-white border-slate-900 shadow-xs'
                       : `bg-white text-slate-700 hover:bg-slate-100 ${cls}`
                   }`}
                 >
-                  <Icon size={13} />
+                  <Icon size={15} />
                   <span>{label}</span>
                 </button>
               );
@@ -272,8 +281,8 @@ export default function App() {
 
           {/* Row 3 (조건부): 시대 렌즈 활성화 시 6대 역사 시대 선택 서브바 */}
           {lens === 'era' && (
-            <div className="flex items-center gap-1.5 overflow-x-auto scroll-thin pt-1 border-t border-amber-100">
-              <span className="text-[11px] font-bold text-amber-800 shrink-0 flex items-center gap-1">
+            <div className="flex items-center gap-2 overflow-x-auto scroll-thin pt-2 border-t border-amber-100">
+              <span className="text-xs font-bold text-amber-800 shrink-0 flex items-center gap-1">
                 👑 시대 선택:
               </span>
               {HISTORICAL_ERAS.map((e) => {
@@ -282,13 +291,13 @@ export default function App() {
                   <button
                     key={e.id}
                     onClick={() => setSelectedEra(e)}
-                    className={`text-[11px] font-bold px-2.5 py-0.8 rounded-lg transition shrink-0 whitespace-nowrap ${
+                    className={`text-xs sm:text-sm font-bold px-3 py-1 rounded-xl transition shrink-0 whitespace-nowrap ${
                       active
                         ? 'bg-amber-600 text-white shadow-2xs'
                         : 'bg-amber-50/80 text-amber-900 hover:bg-amber-100 border border-amber-200/70'
                     }`}
                   >
-                    {e.name}
+                    {e.name} ({e.period})
                   </button>
                 );
               })}
@@ -297,49 +306,32 @@ export default function App() {
         </div>
       </div>
 
-      {/* 모바일 탭 바 (지도 vs 상세) */}
-      <div className="lg:hidden bg-white border-b border-slate-200 px-4 py-1.5 flex gap-2">
-        <button
-          onClick={() => setMobileTab('map')}
-          className={`flex-1 py-1.5 text-xs font-bold rounded-lg transition flex items-center justify-center gap-1.5 ${
-            mobileTab === 'map' ? 'bg-slate-900 text-white' : 'bg-slate-100 text-slate-600'
-          }`}
-        >
-          <MapIcon size={14} /> 지도 보기
-        </button>
-        <button
-          onClick={() => setMobileTab('detail')}
-          className={`flex-1 py-1.5 text-xs font-bold rounded-lg transition flex items-center justify-center gap-1.5 ${
-            mobileTab === 'detail' ? 'bg-slate-900 text-white' : 'bg-slate-100 text-slate-600'
-          }`}
-        >
-          <Info size={14} /> {selectedPref ? `${selectedPref.nameKo} 상세` : '지방 둘러보기'}
-        </button>
-      </div>
+      {/* =================================================================== */}
+      {/* 3. 메인 콘텐츠: 상하 와이드 분할 (상단 100% 대지도 + 하단 3단 와이드 대시보드) */}
+      {/* =================================================================== */}
+      <main className="flex-1 max-w-[1440px] w-full mx-auto px-4 sm:px-6 py-5 space-y-6">
+        {/* [상단] 100% 전체 폭 와이드 지도 영역 */}
+        <div ref={mapSectionRef} className="space-y-3 scroll-mt-24">
+          <div className="w-full h-[520px] sm:h-[600px] lg:h-[660px] rounded-2xl overflow-hidden shadow-sm">
+            <JapanMap
+              selectedPrefId={selectedPrefId}
+              regionFilter={regionFilter}
+              lens={lens}
+              era={selectedEra}
+              inCompare={selectedPrefId ? compareIds.includes(selectedPrefId) : false}
+              compareFull={compareIds.length >= 3}
+              onSelectPrefecture={handleSelectPrefecture}
+              onClearSelection={() => setSelectedPrefId(null)}
+              onToggleCompare={() => selectedPrefId && toggleCompare(selectedPrefId)}
+              onScrollToDetail={scrollToDetail}
+            />
+          </div>
 
-      {/* 3. 메인 콘텐츠: 지도(왼쪽 7-8열) & 상세/오버뷰(오른쪽 4-5열) */}
-      <main className="flex-1 max-w-7xl w-full mx-auto p-3 sm:p-5 flex flex-col min-h-0">
-        <div className="flex-1 grid grid-cols-1 lg:grid-cols-12 gap-4 min-h-[580px] lg:min-h-[640px]">
-          {/* 왼쪽: SVG 벡터 지도 영역 (7 cols) */}
-          <div
-            className={`lg:col-span-7 xl:col-span-8 flex flex-col gap-2 min-h-[460px] lg:min-h-full ${
-              mobileTab === 'detail' ? 'hidden lg:flex' : 'flex'
-            }`}
-          >
-            <div className="flex-1 relative rounded-2xl overflow-hidden shadow-sm">
-              <JapanMap
-                selectedPrefId={selectedPrefId}
-                regionFilter={regionFilter}
-                lens={lens}
-                era={selectedEra}
-                onSelectPrefecture={handleSelectPrefecture}
-              />
-            </div>
-
-            {/* 지도 하단 빠른 도도부현 선택 퀵바 */}
-            <div className="bg-white border border-slate-200 rounded-xl p-2 flex items-center gap-1.5 overflow-x-auto scroll-thin shadow-2xs">
-              <span className="text-[10px] font-bold text-slate-400 shrink-0 ml-1">
-                빠른 선택:
+          {/* 지도 직하단: 빠른 도도부현 선택 바 & 전체 가이드 토글 */}
+          <div className="bg-white border border-slate-200 rounded-2xl p-3 flex items-center justify-between gap-3 shadow-2xs">
+            <div className="flex items-center gap-1.5 overflow-x-auto scroll-thin flex-1">
+              <span className="text-xs font-extrabold text-slate-500 shrink-0 mr-1">
+                빠른 도도부현 선택:
               </span>
               {(regionFilter === 'all'
                 ? ALL_PREFECTURES
@@ -350,9 +342,9 @@ export default function App() {
                   <button
                     key={p.id}
                     onClick={() => handleSelectPrefecture(p.id)}
-                    className={`text-[11px] font-semibold px-2 py-0.5 rounded-md transition shrink-0 whitespace-nowrap ${
+                    className={`text-xs sm:text-sm font-semibold px-2.5 py-1 rounded-lg transition shrink-0 whitespace-nowrap ${
                       isSelected
-                        ? 'bg-slate-900 text-white font-extrabold'
+                        ? 'bg-slate-900 text-white font-extrabold shadow-2xs'
                         : 'bg-slate-50 hover:bg-slate-200 text-slate-700'
                     }`}
                   >
@@ -361,45 +353,88 @@ export default function App() {
                 );
               })}
             </div>
-          </div>
 
-          {/* 오른쪽: 도도부현 상세 정보 or 오버뷰 패널 (5 cols) */}
-          <div
-            className={`lg:col-span-5 xl:col-span-4 h-full min-h-[500px] lg:min-h-0 rounded-2xl border border-slate-200 shadow-sm overflow-hidden ${
-              mobileTab === 'map' ? 'hidden lg:block' : 'block'
-            }`}
-          >
-            {selectedPref ? (
+            {selectedPref && (
+              <button
+                onClick={() => setSelectedPrefId(null)}
+                className="text-xs sm:text-sm font-bold px-3 py-1.5 rounded-xl bg-slate-100 hover:bg-slate-900 hover:text-white text-slate-700 transition shrink-0 flex items-center gap-1.5"
+              >
+                <Compass size={14} /> 8대 지방 전체 가이드 보기
+              </button>
+            )}
+          </div>
+        </div>
+
+        {/* [하단] 전체 폭 상세 대시보드 & 8대 지방·렌즈 오버뷰 */}
+        <div ref={detailSectionRef} className="space-y-8 scroll-mt-20">
+          {selectedPref ? (
+            <>
               <PrefectureDetail
                 prefecture={selectedPref}
                 inCompare={compareIds.includes(selectedPref.id)}
                 compareFull={compareIds.length >= 3}
                 onToggleCompare={() => toggleCompare(selectedPref.id)}
-                onSelectPrefecture={handleSelectPrefecture}
+                onSelectPrefecture={(id) => {
+                  handleSelectPrefecture(id);
+                  scrollToDetail();
+                }}
                 onClose={() => setSelectedPrefId(null)}
+                onScrollToMap={scrollToMap}
               />
-            ) : (
+
+              {/* 렌즈가 켜져 있거나 지방 전체 둘러보기가 필요할 때 함께 보여주는 하단 종합 가이드 */}
               <OverviewPanel
                 lens={lens}
                 era={selectedEra}
                 regionFilter={regionFilter}
-                onSelectPrefecture={handleSelectPrefecture}
-                onSelectRegion={(r) => setRegionFilter(r)}
+                onSelectPrefecture={(id) => {
+                  handleSelectPrefecture(id);
+                  scrollToDetail();
+                }}
+                onSelectRegion={(r) => {
+                  setRegionFilter(r);
+                  scrollToMap();
+                }}
                 onSelectEra={(e) => {
                   setSelectedEra(e);
                   setLens('era');
+                  scrollToMap();
                 }}
               />
-            )}
-          </div>
+            </>
+          ) : (
+            <OverviewPanel
+              lens={lens}
+              era={selectedEra}
+              regionFilter={regionFilter}
+              onSelectPrefecture={(id) => {
+                handleSelectPrefecture(id);
+                scrollToDetail();
+              }}
+              onSelectRegion={(r) => {
+                setRegionFilter(r);
+                scrollToMap();
+              }}
+              onSelectEra={(e) => {
+                setSelectedEra(e);
+                setLens('era');
+                scrollToMap();
+              }}
+            />
+          )}
         </div>
       </main>
 
-      {/* 4. 모달들 */}
+      {/* =================================================================== */}
+      {/* 4. 심층 모달 다이얼로그 3종 */}
+      {/* =================================================================== */}
       <HierarchyModal
         isOpen={isHierarchyOpen}
         onClose={() => setIsHierarchyOpen(false)}
-        onSelectPrefecture={handleSelectPrefecture}
+        onSelectPrefecture={(id) => {
+          handleSelectPrefecture(id);
+          scrollToDetail();
+        }}
       />
 
       <CompareModal
@@ -413,30 +448,36 @@ export default function App() {
           }
         }}
         onClearAll={() => setCompareIds([])}
-        onSelectPrefecture={handleSelectPrefecture}
+        onSelectPrefecture={(id) => {
+          handleSelectPrefecture(id);
+          scrollToDetail();
+        }}
         onApplyPreset={(ids) => setCompareIds(ids)}
       />
 
       <StatsModal
         isOpen={isStatsOpen}
         onClose={() => setIsStatsOpen(false)}
-        onSelectPrefecture={handleSelectPrefecture}
+        onSelectPrefecture={(id) => {
+          handleSelectPrefecture(id);
+          scrollToDetail();
+        }}
       />
 
       {/* 푸터 */}
-      <footer className="border-t border-slate-200 bg-white py-3 px-4 text-center text-xs text-slate-500">
-        <div className="max-w-7xl mx-auto flex flex-col sm:flex-row items-center justify-between gap-2">
-          <div>
+      <footer className="border-t border-slate-200 bg-white py-4 px-6 text-center text-sm text-slate-500 mt-8">
+        <div className="max-w-[1440px] mx-auto flex flex-col sm:flex-row items-center justify-between gap-2">
+          <div className="font-medium">
             일본 8대 지방 · 47개 도도부현 인터랙티브 아틀라스 (Japan Atlas App)
           </div>
-          <div className="flex items-center gap-3 text-slate-600 font-semibold">
+          <div className="flex items-center gap-4 text-slate-600 font-semibold">
             <a
-              href="https://github.com/nalm/japan-map"
+              href="https://github.com/nalm/japan-atlas-app"
               target="_blank"
               rel="noreferrer"
               className="hover:text-slate-900 transition flex items-center gap-1"
             >
-              GitHub nalm/japan-map <ExternalLink size={11} />
+              GitHub nalm/japan-atlas-app <ExternalLink size={13} />
             </a>
             <span>·</span>
             <a
@@ -445,7 +486,7 @@ export default function App() {
               rel="noreferrer"
               className="hover:text-slate-900 transition flex items-center gap-1"
             >
-              중국 아틀라스 (china.nalm.info) <ExternalLink size={11} />
+              중국 아틀라스 (china.nalm.info) <ExternalLink size={13} />
             </a>
           </div>
         </div>

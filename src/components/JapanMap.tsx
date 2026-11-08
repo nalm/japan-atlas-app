@@ -1,14 +1,33 @@
 import { useMemo, useRef, useState, useEffect } from 'react';
-import { ZoomIn, ZoomOut, RotateCcw } from 'lucide-react';
+import {
+  ZoomIn,
+  ZoomOut,
+  RotateCcw,
+  Sparkles,
+  Users,
+  Compass,
+  MapPin,
+  Plus,
+  Check,
+  ArrowDown,
+  ChevronUp,
+  ChevronDown,
+  X,
+} from 'lucide-react';
 import { JAPAN_PREF_PATHS, OKINAWA_INSET_PATH, projectCoord } from '../data/japanMapPaths';
-import { REGIONS, TONGSINSA_ROUTE, SHINKANSEN_ROUTES } from '../data/regionsAndEras';
+import { TONGSINSA_ROUTE, SHINKANSEN_ROUTES } from '../data/regionsAndEras';
 import {
   ALL_PREFECTURES,
   PREFECTURE_MAP,
   REGION_MAP,
+  POPULATION_RANK,
+  AREA_RANK,
+  DENSITY_RANK,
   DENSE_PREF_IDS,
   LABEL_POS,
   formatPop,
+  formatArea,
+  formatDensity,
 } from '../data/prefecturesData';
 import { RegionId, Lens, HistoricalEra } from '../types/atlas';
 
@@ -17,20 +36,31 @@ interface Props {
   regionFilter: RegionId | 'all';
   lens: Lens;
   era: HistoricalEra | null;
+  inCompare: boolean;
+  compareFull: boolean;
   onSelectPrefecture: (id: string) => void;
+  onClearSelection: () => void;
+  onToggleCompare: () => void;
+  onScrollToDetail: () => void;
 }
 
-const BASE_VIEW = { x: 30, y: 20, w: 940, h: 710 };
+const BASE_VIEW = { x: 40, y: 20, w: 920, h: 695 };
 
 export default function JapanMap({
   selectedPrefId,
   regionFilter,
   lens,
   era,
+  inCompare,
+  compareFull,
   onSelectPrefecture,
+  onClearSelection,
+  onToggleCompare,
+  onScrollToDetail,
 }: Props) {
   const [view, setView] = useState(BASE_VIEW);
   const [hoverPrefId, setHoverPrefId] = useState<string | null>(null);
+  const [hudMinimized, setHudMinimized] = useState(false);
   const svgRef = useRef<SVGSVGElement>(null);
   const drag = useRef<{ x: number; y: number; vx: number; vy: number; moved: boolean } | null>(null);
 
@@ -119,10 +149,6 @@ export default function JapanMap({
     () => new Set(lens === 'era' && era ? era.majorHubPrefIds : []),
     [lens, era]
   );
-  const shinkansenPrefSet = useMemo(
-    () => new Set(ALL_PREFECTURES.filter((p) => p.shinkansenLines.length > 0).map((p) => p.id)),
-    []
-  );
 
   const getPrefState = (p: (typeof ALL_PREFECTURES)[0]) => {
     if (regionFilter !== 'all' && p.regionId !== regionFilter) return 'dim';
@@ -143,11 +169,12 @@ export default function JapanMap({
     return 'normal';
   };
 
-  const fs = 10.5 / scale;
+  const fs = 11.2 / scale;
   const tongsinsaCoords = TONGSINSA_ROUTE.map((r) => projectCoord(r.coord));
+  const selectedPref = selectedPrefId ? PREFECTURE_MAP[selectedPrefId] : null;
 
   return (
-    <div className="relative w-full h-full bg-gradient-to-br from-sky-50/70 via-slate-50 to-blue-50/80 rounded-2xl overflow-hidden border border-slate-200 shadow-inner select-none">
+    <div className="relative w-full h-full bg-gradient-to-br from-sky-50/80 via-slate-50 to-blue-50/90 rounded-2xl overflow-hidden border border-slate-200 shadow-inner select-none">
       <svg
         ref={svgRef}
         viewBox={`${view.x} ${view.y} ${view.w} ${view.h}`}
@@ -187,18 +214,18 @@ export default function JapanMap({
           const dimmed = st === 'dim';
 
           let fill = active ? region.activeFillColor : region.fillColor;
-          if (st === 'korea') fill = '#FECACA'; // 로즈
-          else if (st === 'capital') fill = '#FDE68A'; // 앰버
-          else if (st === 'shinkansen') fill = '#BAE6FD'; // 블루
+          if (st === 'korea') fill = '#FECACA';
+          else if (st === 'capital') fill = '#FDE68A';
+          else if (st === 'shinkansen') fill = '#BAE6FD';
 
           return (
             <path
               key={p.id}
               d={path}
               fill={fill}
-              fillOpacity={dimmed ? 0.22 : hovered ? 0.95 : lens !== 'none' ? 0.6 : 0.82}
+              fillOpacity={dimmed ? 0.22 : hovered ? 0.96 : lens !== 'none' ? 0.65 : 0.85}
               stroke={active ? '#0F172A' : hovered ? region.strokeColor : '#FFFFFF'}
-              strokeWidth={(active ? 2.2 : hovered ? 1.5 : 0.85) / scale}
+              strokeWidth={(active ? 2.4 : hovered ? 1.6 : 0.9) / scale}
               strokeLinejoin="round"
               className="transition-[fill-opacity,stroke] duration-150 cursor-pointer"
               onMouseEnter={() => setHoverPrefId(p.id)}
@@ -215,7 +242,6 @@ export default function JapanMap({
               const pts = route.coords.map((c) => projectCoord(c)).map((p) => p.join(',')).join(' ');
               return (
                 <g key={route.id}>
-                  {/* 외곽 발광선 */}
                   <polyline
                     points={pts}
                     fill="none"
@@ -225,16 +251,14 @@ export default function JapanMap({
                     strokeLinejoin="round"
                     opacity={0.8}
                   />
-                  {/* 본선 */}
                   <polyline
                     points={pts}
                     fill="none"
                     stroke={route.color}
-                    strokeWidth={2.4 / scale}
+                    strokeWidth={2.5 / scale}
                     strokeLinecap="round"
                     strokeLinejoin="round"
                   />
-                  {/* 주요 정차역 마커 */}
                   {route.coords.map((c, i) => {
                     const [sx, sy] = projectCoord(c);
                     return (
@@ -242,10 +266,10 @@ export default function JapanMap({
                         key={i}
                         cx={sx}
                         cy={sy}
-                        r={2.8 / scale}
+                        r={3 / scale}
                         fill="#ffffff"
                         stroke={route.color}
-                        strokeWidth={1.4 / scale}
+                        strokeWidth={1.5 / scale}
                       />
                     );
                   })}
@@ -285,7 +309,7 @@ export default function JapanMap({
                   <text
                     x={x + 11 / scale}
                     y={y + 3.2 / scale}
-                    fontSize={fs * 0.9}
+                    fontSize={fs * 0.92}
                     textAnchor="start"
                     fill="#991B1B"
                     fontWeight={700}
@@ -309,8 +333,8 @@ export default function JapanMap({
           const selected = selectedPrefId === p.id;
           const hovered = hoverPrefId === p.id;
 
-          const baseR = (3 + Math.sqrt(p.populationMan) / 10) / scale;
-          const r = selected ? baseR * 1.4 : baseR;
+          const baseR = (3.2 + Math.sqrt(p.populationMan) / 9.5) / scale;
+          const r = selected ? baseR * 1.45 : baseR;
           const isCapital = p.powerBadge === '역대 황도(皇都)' || p.powerBadge === '역대 막부 소재지';
 
           const showLabel =
@@ -320,12 +344,12 @@ export default function JapanMap({
             st === 'korea' ||
             st === 'heritage' ||
             !DENSE_PREF_IDS.has(p.id) ||
-            scale > 1.65;
+            scale > 1.45;
 
           const pos = LABEL_POS[p.id] ?? 'right';
-          const off = r + 3 / scale;
+          const off = r + 3.2 / scale;
           const lx = pos === 'left' ? x - off : pos === 'right' ? x + off : x;
-          const ly = pos === 'top' ? y - off - 1 / scale : pos === 'bottom' ? y + off + fs * 0.8 : y + fs * 0.35;
+          const ly = pos === 'top' ? y - off - 1 / scale : pos === 'bottom' ? y + off + fs * 0.85 : y + fs * 0.35;
           const anchor = pos === 'left' ? 'end' : pos === 'right' ? 'start' : 'middle';
 
           let markerColor = region.strokeColor;
@@ -342,9 +366,8 @@ export default function JapanMap({
               onMouseLeave={() => setHoverPrefId(null)}
               onClick={clickGuard(() => onSelectPrefecture(p.id))}
             >
-              {/* 강조 펄스 링 */}
               {(selected || st === 'capital' || st === 'korea') && (
-                <circle cx={x} cy={y} r={r + 5.5 / scale} fill={markerColor} fillOpacity={0.2} className="pulse-ring" />
+                <circle cx={x} cy={y} r={r + 5.5 / scale} fill={markerColor} fillOpacity={0.22} className="pulse-ring" />
               )}
               {st === 'hub' && (
                 <circle
@@ -358,7 +381,6 @@ export default function JapanMap({
                 />
               )}
 
-              {/* 중심 원형 마커 */}
               <circle
                 cx={x}
                 cy={y}
@@ -369,14 +391,12 @@ export default function JapanMap({
                 filter={selected ? 'url(#pref-glow)' : undefined}
               />
 
-              {/* 황도·막부 왕관 아이콘 */}
               {isCapital && (
                 <text x={x} y={y - r - 2 / scale} fontSize={fs * 1.15} textAnchor="middle" className="pointer-events-none">
                   👑
                 </text>
               )}
 
-              {/* 도도부현 라벨 */}
               {showLabel && (
                 <text
                   x={lx}
@@ -387,7 +407,7 @@ export default function JapanMap({
                   fill={selected ? '#0F172A' : '#1E293B'}
                   style={{ paintOrder: 'stroke' }}
                   stroke="#ffffff"
-                  strokeWidth={3 / scale}
+                  strokeWidth={3.2 / scale}
                   strokeLinejoin="round"
                   className="pointer-events-none"
                 >
@@ -399,38 +419,202 @@ export default function JapanMap({
         })}
       </svg>
 
-      {/* 호버 툴팁 */}
-      {hoverPrefId && (
-        <div className="absolute top-3 left-3 bg-white/95 backdrop-blur-md rounded-xl shadow-lg border border-slate-200 px-3.5 py-2 text-xs pointer-events-none animate-in fade-in duration-100">
+      {/* ===================================================================== */}
+      {/* 좌상단(동해 빈 여백) 선택 도도부현 핵심 요약 HUD 오버레이 카드 */}
+      {/* ===================================================================== */}
+      <div className="absolute top-3.5 left-3.5 z-10 w-[320px] sm:w-[390px] max-w-[calc(100%-64px)] bg-white/95 backdrop-blur-md rounded-2xl shadow-xl border border-slate-200/90 overflow-hidden transition-all">
+        {selectedPref ? (
+          (() => {
+            const region = REGION_MAP[selectedPref.regionId];
+            const popRank = POPULATION_RANK[selectedPref.id];
+            const areaRank = AREA_RANK[selectedPref.id];
+            const densityRank = DENSITY_RANK[selectedPref.id];
+
+            return (
+              <div>
+                {/* HUD 상단 헤더 */}
+                <div
+                  className="px-4 py-3 border-b border-slate-100"
+                  style={{ background: `linear-gradient(135deg, ${region.fillColor}70, #ffffff 85%)` }}
+                >
+                  <div className="flex items-center justify-between gap-2">
+                    <div className="flex flex-wrap items-center gap-1.5">
+                      <span className={`text-xs font-bold px-2.5 py-0.5 rounded-full ${region.badgeBg} ${region.badgeText}`}>
+                        제{region.number}지방 · {region.nameKo}
+                      </span>
+                      <span className="text-xs font-semibold px-2 py-0.5 rounded-full bg-white border border-slate-200 text-slate-700">
+                        {selectedPref.type}
+                      </span>
+                      {selectedPref.powerBadge && (
+                        <span className="text-xs font-bold px-2 py-0.5 rounded-full bg-amber-500 text-white">
+                          👑 {selectedPref.powerBadge}
+                        </span>
+                      )}
+                    </div>
+                    <div className="flex items-center gap-1 shrink-0">
+                      <button
+                        onClick={() => setHudMinimized((m) => !m)}
+                        className="p-1 rounded-lg text-slate-500 hover:text-slate-900 hover:bg-white/80 transition"
+                        title={hudMinimized ? '요약 카드 펼치기' : '요약 카드 접기'}
+                      >
+                        {hudMinimized ? <ChevronDown size={16} /> : <ChevronUp size={16} />}
+                      </button>
+                      <button
+                        onClick={onClearSelection}
+                        className="p-1 rounded-lg text-slate-400 hover:text-slate-900 hover:bg-white/80 transition"
+                        title="선택 해제"
+                      >
+                        <X size={16} />
+                      </button>
+                    </div>
+                  </div>
+
+                  <div className="mt-1.5 flex items-baseline justify-between gap-2">
+                    <h2 className="text-xl sm:text-2xl font-black text-slate-900 tracking-tight">
+                      {selectedPref.nameKo}{' '}
+                      <span className="text-base font-bold text-slate-400">{selectedPref.nameHanja}</span>
+                    </h2>
+                    <span className="text-xs text-slate-500 font-medium">{selectedPref.romaji}</span>
+                  </div>
+                </div>
+
+                {/* HUD 본문 (접혀있지 않을 때 표시) */}
+                {!hudMinimized && (
+                  <div className="p-4 space-y-3">
+                    <div className="flex items-start gap-1.5 text-sm font-bold text-slate-800 leading-snug">
+                      <Sparkles size={15} className="text-amber-500 shrink-0 mt-0.5" />
+                      <span>{selectedPref.nickname}</span>
+                    </div>
+
+                    <div className="text-xs sm:text-sm text-slate-600 bg-slate-50 rounded-xl px-3 py-2 border border-slate-200/70 space-y-0.5">
+                      <div>
+                        <span className="font-bold text-slate-800">현청소재지: </span>
+                        <span>{selectedPref.capitalKo} ({selectedPref.capitalHanja})</span>
+                      </div>
+                      {selectedPref.oldProvinces && (
+                        <div className="text-amber-800 font-semibold">
+                          <span className="font-bold">옛 율령국: </span>
+                          {selectedPref.oldProvinces}
+                        </div>
+                      )}
+                    </div>
+
+                    {/* 3대 지표 요약 */}
+                    <div className="grid grid-cols-3 gap-2 bg-white rounded-xl border border-slate-200 p-2.5 text-center">
+                      <div>
+                        <div className="text-xs text-slate-500 font-semibold flex items-center justify-center gap-1">
+                          <Users size={12} /> 인구
+                        </div>
+                        <div className="text-sm font-black text-slate-900 mt-0.5">
+                          {formatPop(selectedPref.populationMan)}
+                        </div>
+                        <div className="text-xs text-slate-500">전국 {popRank}위</div>
+                      </div>
+                      <div className="border-l border-slate-100">
+                        <div className="text-xs text-slate-500 font-semibold flex items-center justify-center gap-1">
+                          <Compass size={12} /> 면적
+                        </div>
+                        <div className="text-sm font-black text-slate-900 mt-0.5">
+                          {formatArea(selectedPref.areaKm2)}
+                        </div>
+                        <div className="text-xs text-slate-500">전국 {areaRank}위</div>
+                      </div>
+                      <div className="border-l border-slate-100">
+                        <div className="text-xs text-slate-500 font-semibold flex items-center justify-center gap-1">
+                          <MapPin size={12} /> 밀도
+                        </div>
+                        <div className="text-sm font-black text-slate-900 mt-0.5">
+                          {formatDensity(selectedPref.densityPerKm2)}
+                        </div>
+                        <div className="text-xs text-slate-500">전국 {densityRank}위</div>
+                      </div>
+                    </div>
+
+                    {/* 액션 버튼 2종 */}
+                    <div className="flex gap-2 pt-0.5">
+                      <button
+                        onClick={onScrollToDetail}
+                        className="flex-1 flex items-center justify-center gap-1.5 text-xs sm:text-sm font-bold rounded-xl py-2 px-3 bg-slate-900 text-white hover:bg-slate-800 transition shadow-xs"
+                      >
+                        <span>상세 해설 보기</span>
+                        <ArrowDown size={14} />
+                      </button>
+                      <button
+                        onClick={onToggleCompare}
+                        disabled={!inCompare && compareFull}
+                        className={`flex items-center justify-center gap-1 text-xs sm:text-sm font-bold rounded-xl py-2 px-3 transition border ${
+                          inCompare
+                            ? 'bg-amber-500 text-white border-amber-500'
+                            : compareFull
+                            ? 'bg-slate-100 text-slate-400 border-slate-200 cursor-not-allowed'
+                            : 'bg-white text-slate-700 border-slate-300 hover:bg-slate-100'
+                        }`}
+                        title="비교함에 담기/제거"
+                      >
+                        {inCompare ? <Check size={14} /> : <Plus size={14} />}
+                        <span>{inCompare ? '비교함 담김' : '비교함'}</span>
+                      </button>
+                    </div>
+                  </div>
+                )}
+              </div>
+            );
+          })()
+        ) : (
+          <div className="p-4">
+            <div className="flex items-center justify-between">
+              <span className="text-xs font-extrabold text-rose-600 uppercase tracking-wider flex items-center gap-1">
+                <Sparkles size={13} /> 일본 47개 도도부현 아틀라스
+              </span>
+              <button
+                onClick={() => setHudMinimized((m) => !m)}
+                className="p-1 rounded-lg text-slate-400 hover:text-slate-800"
+              >
+                {hudMinimized ? <ChevronDown size={15} /> : <ChevronUp size={15} />}
+              </button>
+            </div>
+            {!hudMinimized && (
+              <>
+                <p className="mt-1.5 text-sm font-bold text-slate-800 leading-snug">
+                  지도에서 도도부현을 클릭하면 이곳에 핵심 요약이 즉시 표시됩니다.
+                </p>
+                <p className="mt-1 text-xs text-slate-500 leading-relaxed">
+                  1都 · 1道 · 2府 · 43県 (총인구 약 1억 2,380만 명). 아래로 스크롤하면 8대 지방 전체 가이드와 테마별 해설을 큰 글씨로 읽을 수 있습니다.
+                </p>
+              </>
+            )}
+          </div>
+        )}
+      </div>
+
+      {/* 상단 중앙 호버 툴팁 (좌상단 HUD와 겹치지 않도록 중앙 상단에 배치) */}
+      {hoverPrefId && hoverPrefId !== selectedPrefId && (
+        <div className="absolute top-3.5 left-1/2 -translate-x-1/2 z-20 bg-slate-900/95 text-white backdrop-blur-md rounded-xl shadow-lg px-4 py-2.5 text-xs sm:text-sm pointer-events-none hidden md:block">
           {(() => {
             const p = PREFECTURE_MAP[hoverPrefId];
             if (!p) return null;
             const region = REGION_MAP[p.regionId];
             return (
-              <>
-                <div className="flex items-center gap-1.5">
-                  <span className={`text-[10px] font-bold px-1.5 py-0.2 rounded ${region.badgeBg} ${region.badgeText}`}>
-                    {region.nameKo}
+              <div className="flex items-center gap-3">
+                <span className={`text-xs font-bold px-2 py-0.5 rounded ${region.badgeBg} ${region.badgeText}`}>
+                  {region.nameKo}
+                </span>
+                <div>
+                  <span className="font-extrabold text-white">{p.nameKo}</span>{' '}
+                  <span className="text-slate-300 text-xs">{p.nameHanja}</span>
+                  <span className="mx-2 text-slate-500">|</span>
+                  <span className="text-slate-200 text-xs">
+                    현청: {p.capitalKo} · 인구 {formatPop(p.populationMan)}
                   </span>
-                  <div className="font-bold text-sm text-slate-900">
-                    {p.nameKo} <span className="text-slate-400 font-medium">{p.nameHanja}</span>
-                  </div>
                 </div>
-                <div className="text-slate-600 mt-0.5">
-                  현청: {p.capitalKo} · 인구 {formatPop(p.populationMan)} ({p.type})
-                </div>
-                <div className="text-slate-500 italic text-[11px] mt-0.5">{p.nickname}</div>
-                {p.oldProvinces && (
-                  <div className="text-[10px] text-amber-700 font-semibold mt-0.5">율령국: {p.oldProvinces}</div>
-                )}
-              </>
+              </div>
             );
           })()}
         </div>
       )}
 
       {/* 지도 제어 버튼 (확대 / 축소 / 초기화) */}
-      <div className="absolute top-3 right-3 flex flex-col gap-1.5">
+      <div className="absolute top-3.5 right-3.5 flex flex-col gap-1.5 z-10">
         {[
           { icon: ZoomIn, fn: () => zoom(1.4), t: '확대' },
           { icon: ZoomOut, fn: () => zoom(1 / 1.4), t: '축소' },
@@ -440,18 +624,18 @@ export default function JapanMap({
             key={t}
             title={t}
             onClick={fn}
-            className="w-9 h-9 rounded-lg bg-white/95 backdrop-blur shadow border border-slate-200 flex items-center justify-center text-slate-600 hover:bg-slate-900 hover:text-white transition active:scale-95"
+            className="w-10 h-10 rounded-xl bg-white/95 backdrop-blur shadow-md border border-slate-200 flex items-center justify-center text-slate-700 hover:bg-slate-900 hover:text-white transition active:scale-95"
           >
-            <Icon size={16} />
+            <Icon size={18} />
           </button>
         ))}
       </div>
 
       {/* 오키나와(류큐제도) 확대 인셋 카드 */}
-      <div className="absolute bottom-3 right-3 bg-white/95 backdrop-blur-md rounded-xl shadow-lg border border-slate-200 p-2.5 max-w-[210px]">
-        <div className="flex items-center justify-between mb-1">
-          <span className="text-[11px] font-bold text-slate-700">오키나와현 (류큐제도)</span>
-          <span className="text-[10px] text-slate-400 font-medium">확대도</span>
+      <div className="absolute bottom-3.5 right-3.5 bg-white/95 backdrop-blur-md rounded-2xl shadow-lg border border-slate-200 p-3 w-[210px] sm:w-[230px] z-10">
+        <div className="flex items-center justify-between mb-1.5">
+          <span className="text-xs font-extrabold text-slate-800">오키나와현 (류큐제도)</span>
+          <span className="text-xs text-slate-400 font-semibold">확대도</span>
         </div>
         {(() => {
           const okinawa = PREFECTURE_MAP['okinawa'];
@@ -459,18 +643,18 @@ export default function JapanMap({
           return (
             <button
               onClick={() => onSelectPrefecture('okinawa')}
-              className={`w-full rounded-lg border p-1.5 text-left transition ${
+              className={`w-full rounded-xl border p-2 text-left transition ${
                 selected
                   ? 'border-rose-600 bg-rose-50 ring-2 ring-rose-400/30'
                   : 'border-slate-200 hover:border-rose-400 hover:bg-slate-50'
               }`}
             >
-              <svg viewBox="10 15 175 105" className="w-full h-18">
+              <svg viewBox="10 15 175 105" className="w-full h-20">
                 <path d={OKINAWA_INSET_PATH} fill="#FED7AA" stroke="#EA580C" strokeWidth={0.9} />
                 <circle cx={154} cy={43} r={selected ? 5.5 : 4} fill="#C2410C" stroke="#ffffff" strokeWidth={1.5} />
               </svg>
-              <div className="flex justify-between items-center text-[10px] text-slate-600 font-semibold mt-1">
-                <span>나하시 (那覇市)</span>
+              <div className="flex justify-between items-center text-xs text-slate-700 font-semibold mt-1">
+                <span>현청: 나하시(那覇市)</span>
                 <span>{formatPop(okinawa?.populationMan ?? 147)}</span>
               </div>
             </button>
@@ -479,8 +663,8 @@ export default function JapanMap({
       </div>
 
       {/* 조작 안내 가이드 */}
-      <div className="absolute bottom-3 left-3 text-[10px] text-slate-500 bg-white/85 backdrop-blur rounded-md px-2.5 py-1 border border-slate-200/60 shadow-sm pointer-events-none hidden sm:block">
-        휠: 확대/축소 · 드래그: 지도 이동 · 원형 크기: 인구 비례 · 👑: 황도/막부
+      <div className="absolute bottom-3.5 left-3.5 text-xs text-slate-600 bg-white/90 backdrop-blur rounded-lg px-3 py-1.5 border border-slate-200/80 shadow-xs pointer-events-none hidden sm:block">
+        마우스 휠: 확대/축소 · 드래그: 이동 · 원형 크기: 인구 비례 · 👑: 역대 황도/막부
       </div>
     </div>
   );

@@ -4,7 +4,7 @@
 
 @layer components {
   .section-title {
-    @apply flex items-center gap-1.5 text-xs font-black uppercase tracking-wider text-slate-800 mb-2;
+    @apply flex items-center gap-2 text-base font-extrabold tracking-tight text-slate-900 mb-3.5;
   }
 }
 
